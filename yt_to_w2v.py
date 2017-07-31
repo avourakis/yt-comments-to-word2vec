@@ -29,3 +29,93 @@ comments_vocabulary = read_comments_from_json(filename)
 data_size = len(comments_vocabulary)
 print('Data size', data_size)
 print('Comments preview:\n', comments_vocabulary[:5])
+
+## BUILD DICTIONARY ##
+
+vocabulary_size = 10 # This number will depend on the max size of a youtube comment
+
+def build_dataset(documents_vocabulary, n_words):
+    """Process raw inputs into datasets"""
+    documents_dataset = {'data': list(), 'count': list(), 'dictionary': list(), 'reversed_dictionary': list()}
+    for words in documents_vocabulary:
+        count = [['UNK', -1]] #Keeps track of common terms and unknow terms along with their count
+        count.extend(collections.Counter(words).most_common(n_words - 1)) # extends "count" by adding the n_words (n most common words) found in each document
+        dictionary = dict() #Keeps track of words found in count along with their id. 
+        for word, _ in count:
+            dictionary[word] = len(dictionary)
+        data = list() #keeps track of the id of the words that appear in the dictinary in the order they appear in the vocabulary
+        unk_count = 0
+        for word in words:
+            if word in dictionary:
+                index = dictionary[word]
+            else:
+                index = 0
+                unk_count += 1
+            data.append(index)
+        count[0][1] = unk_count # updata 'UNK' to reflect the number of unknown terms found so far
+        reversed_dictionary = dict(zip(dictionary.values(), dictionary.keys()))
+        documents_dataset['data'].append(data)
+        documents_dataset['count'].append(count)
+        documents_dataset['dictionary'].append(dictionary)
+        documents_dataset['reversed_dictionary'].append(reversed_dictionary)
+        
+    return documents_dataset
+    
+documents_dataset = build_dataset(comments_vocabulary, vocabulary_size)
+
+del comments_vocabulary #Not needed anymore so delete to reduce memory   
+print('Data in first 5 documents', documents_dataset['data'][:5])
+print('Most common words (+UNK) in first 5 documents', documents_dataset['count'][:5])
+#print('Keys', documents_dataset.keys())
+#print('Values', documents_dataset.values())
+print(len(documents_dataset['data']))
+
+## GENERATE TRAINING BATCH (SKIP-GRAM MODEL) ##
+
+data_index = 0
+
+def generate_batch(batch_size, num_skips, skip_window):
+    documents_batches = {'batch': list(), 'labels': list()}
+    global data_index
+    assert batch_size % num_skips == 0
+    assert num_skips <= 2 * skip_window
+
+    for document_n in range(data_size):
+
+        data = documents_dataset['data'][document_n] #Data from each document (total of data_size documents)
+        if(len(data) > 10): #TODO: Take care of documents that don't contain enough data. Some documents could be single word
+            
+            batch = np.ndarray(shape=(batch_size), dtype=np.int32)
+            labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32)
+            span = 2* skip_window + 1 # [skip_window target skip_window]
+            buffer = collections.deque(maxlen=span) #Keeps track all words being analized during each iteration
+            
+            print("Size of data", len(data))
+            print("Span", span)
+            for _ in range(span):
+                print("Before", data_index)
+                buffer.append(data[data_index])
+                data_index = (data_index + 1) % len(data) #increments by 1 until it reaches the end of data in document
+                print("After", data_index)
+            for i in range(batch_size // num_skips):
+                target = skip_window # target label at the center of the buffer
+                targets_to_avoid = [skip_window]
+                for j in range(num_skips):
+                    while target in targets_to_avoid:
+                        target = random.randint(0, span - 1) 
+                    targets_to_avoid.append(target)
+                    batch[i * num_skips + j] = buffer[skip_window]
+                    labels[i* num_skips + j, 0] = buffer[target]
+
+                buffer.append(data[data_index])
+                data_index = (data_index + 1) % len(data)
+
+            data_index = (data_index + len(data) - span) % len(data)
+            documents_batches['batch'].append(batch)
+            documents_batches['labels'].append(labels)
+        
+    return documents_batches
+        
+            
+
+
