@@ -7,6 +7,10 @@ import tensorflow as tf
 import json
 import collections
 
+"""
+Reference: https://www.tensorflow.org/tutorials/word2vec
+"""
+
 ## READ DATA ##
 
 #Note: Comments can also be seen as documents and vice versa
@@ -89,33 +93,36 @@ def generate_batch(batch_size, num_skips, skip_window):
             labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32)
             span = 2* skip_window + 1 # [skip_window target skip_window]
             buffer = collections.deque(maxlen=span) #Keeps track all words being analized during each iteration
-            
+
             print("Size of data", len(data))
             print("Span", span)
-            for _ in range(span):
+            for _ in range(span): # Buffers only the words to be looked at. Based on span (depends on size of skip window). 
                 print("Before", data_index)
                 buffer.append(data[data_index])
+                print("data: ", data[data_index])
                 data_index = (data_index + 1) % len(data) #increments by 1 until it reaches the end of data in document
                 print("After", data_index)
-            for i in range(batch_size // num_skips):
-                target = skip_window # target label at the center of the buffer
-                targets_to_avoid = [skip_window]
+            for i in range(batch_size // num_skips): # // Divides with integral result (I forget!)
+                target = skip_window # Word in middle of window. target label at the center of the buffer
+                targets_to_avoid = [skip_window] # Do not consider word in middle of window (target)
                 for j in range(num_skips):
                     while target in targets_to_avoid:
                         target = random.randint(0, span - 1) 
                     targets_to_avoid.append(target)
-                    batch[i * num_skips + j] = buffer[skip_window]
-                    labels[i* num_skips + j, 0] = buffer[target]
+                    batch[i * num_skips + j] = buffer[skip_window] #Save the target word in batch
+                    labels[i* num_skips + j, 0] = buffer[target] #Save target in label. Target is not necessarely the same as target word
 
                 buffer.append(data[data_index])
                 data_index = (data_index + 1) % len(data)
+                print("Last change: ", data_index)
 
-            data_index = (data_index + len(data) - span) % len(data)
             documents_batches['batch'].append(batch)
             documents_batches['labels'].append(labels)
+
+            data_index = (data_index + len(data) - span) % len(data)
         
     return documents_batches
         
-            
+documents_batches = generate_batch(8,2,1)
 
 
