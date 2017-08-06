@@ -119,10 +119,24 @@ def generate_batch(batch_size, num_skips, skip_window):
             documents_batches['batch'].append(batch)
             documents_batches['labels'].append(labels)
 
-            data_index = (data_index + len(data) - span) % len(data)
+        #data_index = (data_index + len(data) - span) % len(data) # Backtrack a little bit to avoid skipping words in the end of a batch
+        data_index = 0 # Fixed out of index error. VERIFY!!
         
     return documents_batches
         
 documents_batches = generate_batch(8,2,1)
 
+for i in range(len(documents_batches['batch'])):
+    for j in range(8):
+        batch = documents_batches['batch'][i]
+        labels = documents_batches['labels'][i]
+        reversed_dictionary = documents_dataset['reversed_dictionary'][i]
+        print(batch[j], reversed_dictionary[batch[j]], '->',
+                labels[j,0], reversed_dictionary[labels[j, 0]])
 
+## BUILD AND TRAIN SKIP-GRAM MODEL ##
+
+batch_size = 128
+embeddings_size = 128 #Dimension of embedding vector
+skip_window = 1 # How many words to consider left and right
+num_skips = 2 #How many times to reuse and input to generate a label
