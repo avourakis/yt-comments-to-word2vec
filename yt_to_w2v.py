@@ -90,7 +90,7 @@ def generate_batch(batch_size, num_skips, skip_window):
         if(len(data) > 10): #TODO: Take care of documents that don't contain enough data. Some documents could be single word
             
             batch = np.ndarray(shape=(batch_size), dtype=np.int32)
-            labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32)
+            labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32) # shape=(rows,cols)
             span = 2* skip_window + 1 # [skip_window target skip_window]
             buffer = collections.deque(maxlen=span) #Keeps track all words being analized during each iteration
 
@@ -106,8 +106,8 @@ def generate_batch(batch_size, num_skips, skip_window):
                 target = skip_window # Word in middle of window. target label at the center of the buffer
                 targets_to_avoid = [skip_window] # Do not consider word in middle of window (target)
                 for j in range(num_skips):
-                    while target in targets_to_avoid:
-                        target = random.randint(0, span - 1) 
+                    while target in targets_to_avoid: #Starts as true 
+                        target = random.randint(0, span - 1) #NOT SURE
                     targets_to_avoid.append(target)
                     batch[i * num_skips + j] = buffer[skip_window] #Save the target word in batch
                     labels[i* num_skips + j, 0] = buffer[target] #Save target in label. Target is not necessarely the same as target word
