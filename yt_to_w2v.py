@@ -80,6 +80,7 @@ data_index = 0
 
 def generate_batch(batch_size, num_skips, skip_window):
     documents_batches = {'batch': list(), 'labels': list()}
+    documents_not_skipped = []
     global data_index
     assert batch_size % num_skips == 0
     assert num_skips <= 2 * skip_window
@@ -89,6 +90,7 @@ def generate_batch(batch_size, num_skips, skip_window):
         data = documents_dataset['data'][document_n] #Data from each document (total of data_size documents)
         if(len(data) > 10): #TODO: Take care of documents that don't contain enough data. Some documents could be single word
             
+            documents_not_skipped.append(document_n) #Keeps track of index of documents for which batches are created
             batch = np.ndarray(shape=(batch_size), dtype=np.int32)
             labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32) # shape=(rows,cols)
             span = 2* skip_window + 1 # [skip_window target skip_window]
@@ -120,17 +122,22 @@ def generate_batch(batch_size, num_skips, skip_window):
             documents_batches['labels'].append(labels)
 
         #data_index = (data_index + len(data) - span) % len(data) # Backtrack a little bit to avoid skipping words in the end of a batch
-        data_index = 0 # Fixed out of index error. VERIFY!!
+        data_index = 0 # Fixed "out of index error". VERIFY!!
         
-    return documents_batches
+    return documents_batches, documents_not_skipped
         
-documents_batches = generate_batch(8,2,1)
+batch_size = 8
+num_skips = 2
+skips_window = 1
+documents_batches, documents_not_skipped = generate_batch(batch_size, num_skips, skips_window)
 
-for i in range(len(documents_batches['batch'])):
-    for j in range(8):
-        batch = documents_batches['batch'][i]
-        labels = documents_batches['labels'][i]
-        reversed_dictionary = documents_dataset['reversed_dictionary'][i]
+for i in range(len(documents_batches['batch'])): #iterate through each document's data
+    batch = documents_batches['batch'][i]
+    labels = documents_batches['labels'][i]
+    reversed_index = documents_not_skipped[i] #Index of the documents not skipped during batch creation
+    reversed_dictionary = documents_dataset['reversed_dictionary'][reversed_index]
+
+    for j in range(batch_size): #iterate through each document's batches
         print(batch[j], reversed_dictionary[batch[j]], '->',
                 labels[j,0], reversed_dictionary[labels[j, 0]])
 
